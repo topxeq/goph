@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -234,4 +235,44 @@ func (c Client) GetFileContent(remotePath string) ([]byte, error) {
 	}
 
 	return local.Bytes(), nil
+}
+
+func (c Client) GetFileInfo(remotePath string) (map[string]string, error) {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return nil, err
+	}
+	defer ftp.Close()
+
+	fi, err := ftp.Stat(remotePath)
+
+	if err != nil && !os.IsExist(err) {
+		return nil, err
+	}
+
+	mapT := map[string]string{"Path": remotePath, "Abs": remotePath, "Name": filepath.Base(remotePath), "Ext": filepath.Ext(remotePath), "Size": fmt.Sprintf("%v", fi.Size()), "IsDir": fmt.Sprintf("%v", fi.IsDir()), "Time": fi.ModTime().Format("20060102150405"), "Mode": fmt.Sprintf("%v", fi.Mode())}
+
+	return mapT, nil
+}
+
+func (c Client) IfFileExists(remotePath string) (bool, error) {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return false, err
+	}
+	defer ftp.Close()
+
+	_, err := ftp.Stat(remotePath)
+
+	if err != nil {
+		if os.IsExist(err) {
+			return true, err
+		} else {
+			return false, err
+		}
+	}
+
+	return true, nil
 }
