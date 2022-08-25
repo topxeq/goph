@@ -264,7 +264,7 @@ func (c Client) IfFileExists(remotePath string) (bool, error) {
 	}
 	defer ftp.Close()
 
-	_, err := ftp.Stat(remotePath)
+	_, err = ftp.Stat(remotePath)
 
 	if err != nil {
 		if os.IsExist(err) {
