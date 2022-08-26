@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -161,8 +162,73 @@ func (c Client) Close() error {
 	return c.Client.Close()
 }
 
+func GetSwitch(argsA []string, switchStrA string, defaultA ...string) string {
+
+	ifDefaultT := true
+	var defaultT string
+
+	if defaultA == nil || len(defaultA) < 1 {
+		ifDefaultT = false
+	}
+
+	if ifDefaultT {
+		defaultT = defaultA[0]
+	}
+
+	if argsA == nil {
+		if ifDefaultT {
+			return defaultT
+		}
+		return ""
+	}
+
+	if len(argsA) < 1 {
+		if ifDefaultT {
+			return defaultT
+		}
+		return ""
+	}
+
+	tmpStrT := ""
+	for _, argT := range argsA {
+		if strings.HasPrefix(argT, switchStrA) {
+			tmpStrT = argT[len(switchStrA):]
+			if strings.HasPrefix(tmpStrT, "\"") && strings.HasSuffix(tmpStrT, "\"") {
+				return tmpStrT[1 : len(tmpStrT)-1]
+			}
+
+			return tmpStrT
+		}
+
+	}
+
+	if ifDefaultT {
+		return defaultT
+	}
+	return ""
+}
+
+func IfSwitchExists(argsA []string, switchStrA string) bool {
+	if argsA == nil {
+		return false
+	}
+
+	if len(argsA) < 1 {
+		return false
+	}
+
+	for _, argT := range argsA {
+		if argT == switchStrA {
+			return true
+		}
+
+	}
+
+	return false
+}
+
 // Upload a local file to remote server!
-func (c Client) Upload(localPath string, remotePath string) (err error) {
+func (c Client) Upload(localPath string, remotePath string, optsA ...string) (err error) {
 
 	local, err := os.Open(localPath)
 	if err != nil {
@@ -176,7 +242,24 @@ func (c Client) Upload(localPath string, remotePath string) (err error) {
 	}
 	defer ftp.Close()
 
-	remote, err := ftp.Create(remotePath)
+	ifForceT := IfSwitchExists(optsA, "-force")
+
+	if !ifForceT {
+		b1, errT := c.IfFileExists(remotePath)
+		if errT != nil {
+			err = errT
+			return
+		}
+
+		if b1 {
+			err = fmt.Errorf("file already exists")
+			return
+		}
+	}
+
+	var remote *sftp.File
+
+	remote, err = ftp.Create(remotePath)
 	if err != nil {
 		return
 	}
@@ -268,9 +351,9 @@ func (c Client) IfFileExists(remotePath string) (bool, error) {
 
 	if err != nil {
 		if os.IsExist(err) {
-			return true, err
+			return true, nil
 		} else {
-			return false, err
+			return false, nil
 		}
 	}
 
