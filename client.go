@@ -359,3 +359,112 @@ func (c Client) IfFileExists(remotePath string) (bool, error) {
 
 	return true, nil
 }
+
+func (c Client) MakeDir(remotePath string) error {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return err
+	}
+	defer ftp.Close()
+
+	err = ftp.Mkdir(remotePath)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Client) EnsureMakeDirs(remotePath string) error {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return err
+	}
+	defer ftp.Close()
+
+	err = ftp.MkdirAll(remotePath)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Client) RemoveDir(remotePath string) error {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return err
+	}
+	defer ftp.Close()
+
+	err = ftp.RemoveDirectory(remotePath)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Client) RemoveFile(remotePath string) error {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return err
+	}
+	defer ftp.Close()
+
+	err = ftp.Remove(remotePath)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Client) JoinPath(elem ...string) string {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return "TXERROR:failed to create sftp object"
+	}
+	defer ftp.Close()
+
+	return ftp.Join(elem...)
+
+}
+
+func (c Client) Rename(oldname, newname string) error {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return err
+	}
+	defer ftp.Close()
+
+	err = ftp.Rename(oldname, newname)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Client) RealPath(path string) (string, error) {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return path, err
+	}
+	defer ftp.Close()
+
+	return ftp.RealPath(path)
+
+}
