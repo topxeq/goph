@@ -269,6 +269,44 @@ func (c Client) Upload(localPath string, remotePath string, optsA ...string) (er
 	return
 }
 
+func (c Client) UploadFileContent(contentA []byte, remotePath string, optsA ...string) (err error) {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return
+	}
+	defer ftp.Close()
+
+	ifForceT := IfSwitchExists(optsA, "-force")
+
+	if !ifForceT {
+		b1, errT := c.IfFileExists(remotePath)
+		if errT != nil {
+			err = errT
+			return
+		}
+
+		if b1 {
+			err = fmt.Errorf("file already exists")
+			return
+		}
+	}
+
+	var remote *sftp.File
+
+	remote, err = ftp.Create(remotePath)
+	if err != nil {
+		return
+	}
+	defer remote.Close()
+
+	bytesT := bytes.NewBuffer(contentA)
+
+	_, err = io.Copy(remote, bytesT)
+
+	return
+}
+
 // Download file from remote server!
 func (c Client) Download(remotePath string, localPath string) (err error) {
 
