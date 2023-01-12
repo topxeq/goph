@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/pkg/sftp"
+	"github.com/topxeq/countingwriter"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -241,6 +243,189 @@ func (c Client) Upload(localPath string, remotePath string, optsA ...string) (er
 		return
 	}
 	defer ftp.Close()
+
+	ifResumeT := IfSwitchExists(optsA, "-resume")
+
+	if ifResumeT {
+		b1, errT := c.IfFileExists(remotePath)
+		if errT != nil {
+			err = errT
+			return
+		}
+
+		var remote *sftp.File
+
+		var oldLenT int64 = 0
+
+		if b1 {
+			var fi fs.FileInfo
+			fi, err = ftp.Stat(remotePath)
+
+			if err != nil && !os.IsExist(err) {
+				return
+			}
+
+			if fi.IsDir() {
+				err = fmt.Errorf("is dir")
+				return
+			}
+
+			oldLenT = fi.Size()
+
+			remote, err = ftp.OpenFile(remotePath, os.O_RDWR|os.O_CREATE|os.O_APPEND)
+			if err != nil {
+				return
+			}
+			defer remote.Close()
+
+			var offsetT int64
+			offsetT, err = local.Seek(oldLenT, 0)
+			if err != nil {
+				return
+			}
+
+			if offsetT != oldLenT {
+				err = fmt.Errorf("seek offset failed: %v", offsetT)
+				return
+			}
+
+			fmt.Printf("resume from offset %v\n", offsetT)
+
+		} else {
+			remote, err = ftp.Create(remotePath)
+			if err != nil {
+				return
+			}
+			defer remote.Close()
+
+		}
+
+		_, err = io.Copy(remote, local)
+		return
+
+	}
+
+	ifForceT := IfSwitchExists(optsA, "-force")
+
+	if !ifForceT {
+		b1, errT := c.IfFileExists(remotePath)
+		if errT != nil {
+			err = errT
+			return
+		}
+
+		if b1 {
+			err = fmt.Errorf("file already exists")
+			return
+		}
+	}
+
+	var remote *sftp.File
+
+	remote, err = ftp.Create(remotePath)
+	if err != nil {
+		return
+	}
+	defer remote.Close()
+
+	_, err = io.Copy(remote, local)
+	return
+}
+
+func (c Client) UploadWithProgressFunc(localPath string, remotePath string, funcA func(interface{}) interface{}, optsA ...string) (err error) {
+	defer func() {
+		r := recover()
+
+		if r != nil {
+			err = fmt.Errorf("failed to upload: %v", r)
+			return
+		}
+
+		// if funcA != nil {
+		// 	funcA("-1|failed to upload: exception")
+		// }
+	}()
+
+	local, err := os.Open(localPath)
+	if err != nil {
+		return
+	}
+	defer local.Close()
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return
+	}
+	defer ftp.Close()
+
+	ifResumeT := IfSwitchExists(optsA, "-resume")
+
+	if ifResumeT {
+		b1, errT := c.IfFileExists(remotePath)
+		if errT != nil {
+			err = errT
+			return
+		}
+
+		var remote *sftp.File
+
+		var oldLenT int64 = 0
+
+		if b1 {
+			var fi fs.FileInfo
+			fi, err = ftp.Stat(remotePath)
+
+			if err != nil && !os.IsExist(err) {
+				return
+			}
+
+			if fi.IsDir() {
+				err = fmt.Errorf("is dir")
+				return
+			}
+
+			oldLenT = fi.Size()
+
+			remote, err = ftp.OpenFile(remotePath, os.O_RDWR|os.O_CREATE|os.O_APPEND)
+			if err != nil {
+				return
+			}
+			defer remote.Close()
+
+			var offsetT int64
+			offsetT, err = local.Seek(oldLenT, 0)
+			if err != nil {
+				return
+			}
+
+			if offsetT != oldLenT {
+				err = fmt.Errorf("seek offset failed: %v", offsetT)
+				return
+			}
+
+			fmt.Printf("resume from offset %v\n", offsetT)
+
+		} else {
+			remote, err = ftp.Create(remotePath)
+			if err != nil {
+				return
+			}
+			defer remote.Close()
+
+		}
+
+		var multiWriterT io.Writer
+
+		if funcA != nil {
+			multiWriterT = io.MultiWriter(remote, countingwriter.NewWriter(nil, funcA))
+		} else {
+			multiWriterT = remote
+		}
+
+		_, err = io.Copy(multiWriterT, local)
+		return
+
+	}
 
 	ifForceT := IfSwitchExists(optsA, "-force")
 
