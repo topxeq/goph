@@ -358,6 +358,8 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 	}
 	defer ftp.Close()
 
+	var multiWriterT io.Writer
+
 	ifResumeT := IfSwitchExists(optsA, "-resume")
 
 	if ifResumeT {
@@ -414,8 +416,6 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 
 		}
 
-		var multiWriterT io.Writer
-
 		if funcA != nil {
 			multiWriterT = io.MultiWriter(remote, countingwriter.NewWriter(nil, funcA))
 		} else {
@@ -450,7 +450,13 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 	}
 	defer remote.Close()
 
-	_, err = io.Copy(remote, local)
+	if funcA != nil {
+		multiWriterT = io.MultiWriter(remote, countingwriter.NewWriter(nil, funcA))
+	} else {
+		multiWriterT = remote
+	}
+
+	_, err = io.Copy(multiWriterT, local)
 	return
 }
 
