@@ -698,7 +698,11 @@ func (c Client) RealPath(path string) (string, error) {
 
 }
 
-func (c Client) SimpleWalk(path string) ([]string, error) {
+func (c Client) SimpleWalk(pathA string, patternA string) ([]string, error) {
+
+	if patternA == "" {
+		patternA = "*"
+	}
 
 	ftp, err := c.NewSftp()
 	if err != nil {
@@ -708,13 +712,23 @@ func (c Client) SimpleWalk(path string) ([]string, error) {
 
 	itemsT := make([]string, 0)
 
-	walker := ftp.Walk(path)
+	walker := ftp.Walk(pathA)
 	for walker.Step() {
 		if err := walker.Err(); err != nil {
 			return nil, err
 		}
 
-		itemsT = append(itemsT, walker.Path())
+		tmpPathT := walker.Path()
+
+		b1, errT := filepath.Match(patternA, tmpPathT)
+
+		if errT != nil {
+			return nil, errT
+		}
+
+		if b1 {
+			itemsT = append(itemsT, tmpPathT)
+		}
 	}
 
 	return itemsT, nil
