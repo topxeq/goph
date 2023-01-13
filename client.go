@@ -697,3 +697,25 @@ func (c Client) RealPath(path string) (string, error) {
 	return ftp.RealPath(path)
 
 }
+
+func (c Client) SimpleWalk(path string) ([]string, error) {
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return nil, err
+	}
+	defer ftp.Close()
+
+	itemsT := make([]string, 0)
+
+	walker := ftp.Walk(path)
+	for walker.Step() {
+		if err := walker.Err(); err != nil {
+			return nil, err
+		}
+
+		itemsT = append(itemsT, walker.Path())
+	}
+
+	return itemsT, nil
+}
