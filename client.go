@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -162,6 +163,33 @@ func (c Client) NewSftp(opts ...sftp.ClientOption) (*sftp.Client, error) {
 // Close client net connection.
 func (c Client) Close() error {
 	return c.Client.Close()
+}
+
+func GetFilePathSeperator() string {
+	osT := runtime.GOOS
+	if osT == "windows" {
+		return "\\"
+	} else {
+		return "/"
+	}
+}
+
+func GetLastComponentOfFilePath(pathA string, sepA ...string) string {
+	var sepT string
+	if len(sepA) > 0 {
+		sepT = sepA[0]
+		listT := strings.Split(pathA, sepT)
+
+		return listT[len(listT)-1]
+	} else {
+		sepT = GetFilePathSeperator()
+	}
+
+	if strings.HasSuffix(pathA, sepT) {
+		return ""
+	} else {
+		return filepath.Base(pathA)
+	}
 }
 
 func GetSwitch(argsA []string, switchStrA string, defaultA ...string) string {
@@ -728,6 +756,93 @@ func (c Client) SimpleWalk(pathA string, patternA string) ([]string, error) {
 
 		if b1 {
 			itemsT = append(itemsT, tmpPathT)
+		}
+	}
+
+	return itemsT, nil
+}
+
+func (c Client) Walk(pathA string, argsA ...string) ([]string, error) {
+
+	sepT := GetSwitch(argsA, "-sep=", "/")
+	patternT := GetSwitch(argsA, "-pattern=", "*")
+	if patternT == "" {
+		patternT = "*"
+	}
+
+	withDirT := IfSwitchExists(argsA, "-withDir")
+	dirOnlyT := IfSwitchExists(argsA, "-dirOnly")
+
+	ifRecursiveT := IfSwitchExists(argsA, "-recursive")
+
+	ftp, err := c.NewSftp()
+	if err != nil {
+		return nil, err
+	}
+	defer ftp.Close()
+
+	itemsT := make([]string, 0)
+
+	walker := ftp.Walk(pathA)
+	for walker.Step() {
+		if err := walker.Err(); err != nil {
+			return nil, err
+		}
+
+		fiT := walker.Stat()
+
+		if fiT == nil {
+			continue
+		}
+
+		tmpPathT := walker.Path()
+
+		// fmt.Printf("fi: %#v, %v\n", fiT, tmpPathT)
+
+		isDirT := fiT.IsDir()
+
+		if isDirT && tmpPathT == pathA {
+			continue
+		}
+
+		// if isDirT && (!ifRecursiveT) {
+		// 	if withDirT || dirOnlyT {
+		// 		itemsT = append(itemsT, tmpPathT)
+		// 	}
+
+		// 	walker.SkipDir()
+		// 	continue
+		// }
+
+		// fmt.Printf("GetLastComponentOfFilePath: %#v\n", GetLastComponentOfFilePath(tmpPathT, sepT))
+
+		b1, errT := filepath.Match(patternT, GetLastComponentOfFilePath(tmpPathT, sepT))
+
+		fmt.Printf("patternT: %#v, fnT: %v, bool: %v\n", patternT, GetLastComponentOfFilePath(tmpPathT, sepT), b1)
+
+		if errT != nil {
+			return nil, errT
+		}
+
+		if b1 {
+			if isDirT {
+				if !ifRecursiveT {
+					if withDirT || dirOnlyT {
+						itemsT = append(itemsT, tmpPathT)
+					}
+
+					walker.SkipDir()
+					continue
+				}
+
+				if withDirT || dirOnlyT {
+					itemsT = append(itemsT, tmpPathT)
+				}
+			} else {
+				if !dirOnlyT {
+					itemsT = append(itemsT, tmpPathT)
+				}
+			}
 		}
 	}
 
