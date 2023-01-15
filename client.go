@@ -445,7 +445,7 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 		}
 
 		if funcA != nil {
-			multiWriterT = io.MultiWriter(remote, countingwriter.NewWriter(nil, funcA))
+			multiWriterT = io.MultiWriter(remote, countingwriter.NewCountingWriter(nil, funcA))
 		} else {
 			multiWriterT = remote
 		}
@@ -479,7 +479,7 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 	defer remote.Close()
 
 	if funcA != nil {
-		multiWriterT = io.MultiWriter(remote, countingwriter.NewWriter(nil, funcA))
+		multiWriterT = io.MultiWriter(remote, countingwriter.NewCountingWriter(nil, funcA))
 	} else {
 		multiWriterT = remote
 	}
