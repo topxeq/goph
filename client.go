@@ -317,7 +317,7 @@ func (c Client) Upload(localPath string, remotePath string, optsA ...string) (er
 				return
 			}
 
-			fmt.Printf("resume from offset %v\n", offsetT)
+			// fmt.Printf("resume from offset %v\n", offsetT)
 
 		} else {
 			remote, err = ftp.Create(remotePath)
@@ -433,7 +433,7 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 				return
 			}
 
-			fmt.Printf("resume from offset %v\n", offsetT)
+			// fmt.Printf("resume from offset %v\n", offsetT)
 
 		} else {
 			remote, err = ftp.Create(remotePath)
@@ -818,7 +818,7 @@ func (c Client) Walk(pathA string, argsA ...string) ([]string, error) {
 
 		b1, errT := filepath.Match(patternT, GetLastComponentOfFilePath(tmpPathT, sepT))
 
-		fmt.Printf("patternT: %#v, fnT: %v, bool: %v\n", patternT, GetLastComponentOfFilePath(tmpPathT, sepT), b1)
+		// fmt.Printf("patternT: %#v, fnT: %v, bool: %v\n", patternT, GetLastComponentOfFilePath(tmpPathT, sepT), b1)
 
 		if errT != nil {
 			return nil, errT
