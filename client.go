@@ -526,8 +526,45 @@ func (c Client) UploadFileContent(contentA []byte, remotePath string, optsA ...s
 	return
 }
 
+func IsDirectory(dirNameA string) bool {
+	f, err := os.Open(dirNameA)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+
+	if mode := fi.Mode(); mode.IsDir() {
+		return true
+	}
+
+	return false
+}
+
+func IfFileExists(fileNameA string) bool {
+	_, err := os.Stat(fileNameA)
+	return err == nil || os.IsExist(err)
+}
+
 // Download file from remote server!
-func (c Client) Download(remotePath string, localPath string) (err error) {
+func (c Client) Download(remotePath string, localPath string, optsA ...string) (err error) {
+	if IsDirectory(localPath) {
+		err = fmt.Errorf("target is a directory")
+		return
+	}
+
+	ifForceT := IfSwitchExists(optsA, "-force")
+
+	if IfFileExists(localPath) {
+		if !ifForceT {
+			err = fmt.Errorf("file already exists")
+			return
+		}
+	}
 
 	local, err := os.Create(localPath)
 	if err != nil {
