@@ -498,7 +498,9 @@ func (c Client) UploadFileContent(contentA []byte, remotePath string, optsA ...s
 
 	ifForceT := IfSwitchExists(optsA, "-force")
 
-	if !ifForceT {
+	ifAppendT := IfSwitchExists(optsA, "-append")
+
+	if !ifForceT && !ifAppendT {
 		b1, errT := c.IfFileExists(remotePath)
 		if errT != nil {
 			err = errT
@@ -513,11 +515,19 @@ func (c Client) UploadFileContent(contentA []byte, remotePath string, optsA ...s
 
 	var remote *sftp.File
 
-	remote, err = ftp.Create(remotePath)
-	if err != nil {
-		return
+	if ifAppendT {
+		remote, err = ftp.OpenFile(remotePath, os.O_RDWR|os.O_CREATE|os.O_APPEND)
+		if err != nil {
+			return
+		}
+		defer remote.Close()
+	} else {
+		remote, err = ftp.Create(remotePath)
+		if err != nil {
+			return
+		}
+		defer remote.Close()
 	}
-	defer remote.Close()
 
 	bytesT := bytes.NewBuffer(contentA)
 
@@ -591,7 +601,7 @@ func (c Client) Download(remotePath string, localPath string, optsA ...string) (
 	return local.Sync()
 }
 
-func (c Client) GetFileContent(remotePath string) ([]byte, error) {
+func (c Client) GetFileContent(remotePath string, optsA ...string) ([]byte, error) {
 
 	var local bytes.Buffer
 
