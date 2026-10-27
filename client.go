@@ -275,7 +275,7 @@ func (c Client) Upload(localPath string, remotePath string, optsA ...string) (er
 	ifResumeT := IfSwitchExists(optsA, "-resume")
 
 	if ifResumeT {
-		b1, errT := c.IfFileExists(remotePath)
+		b1, errT := sftpFileExists(ftp, remotePath)
 		if errT != nil {
 			err = errT
 			return
@@ -336,7 +336,7 @@ func (c Client) Upload(localPath string, remotePath string, optsA ...string) (er
 	ifForceT := IfSwitchExists(optsA, "-force")
 
 	if !ifForceT {
-		b1, errT := c.IfFileExists(remotePath)
+		b1, errT := sftpFileExists(ftp, remotePath)
 		if errT != nil {
 			err = errT
 			return
@@ -391,7 +391,7 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 	ifResumeT := IfSwitchExists(optsA, "-resume")
 
 	if ifResumeT {
-		b1, errT := c.IfFileExists(remotePath)
+		b1, errT := sftpFileExists(ftp, remotePath)
 		if errT != nil {
 			err = errT
 			return
@@ -458,7 +458,7 @@ func (c Client) UploadWithProgressFunc(localPath string, remotePath string, func
 	ifForceT := IfSwitchExists(optsA, "-force")
 
 	if !ifForceT {
-		b1, errT := c.IfFileExists(remotePath)
+		b1, errT := sftpFileExists(ftp, remotePath)
 		if errT != nil {
 			err = errT
 			return
@@ -501,7 +501,7 @@ func (c Client) UploadFileContent(contentA []byte, remotePath string, optsA ...s
 	ifAppendT := IfSwitchExists(optsA, "-append")
 
 	if !ifForceT && !ifAppendT {
-		b1, errT := c.IfFileExists(remotePath)
+		b1, errT := sftpFileExists(ftp, remotePath)
 		if errT != nil {
 			err = errT
 			return
@@ -652,6 +652,26 @@ func (c Client) IfFileExists(remotePath string) (bool, error) {
 	defer ftp.Close()
 
 	_, err = ftp.Stat(remotePath)
+
+	if err != nil {
+		if os.IsExist(err) {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// sftpFileExists checks file existence on an already-open sftp connection.
+// The upload functions must not open a second SSH connection for the
+// existence check while one is active: some servers (e.g. Serv-U) drop or
+// corrupt the first session when the same user connects again immediately,
+// which surfaced as "connection lost" on the subsequent write.
+func sftpFileExists(ftpA *sftp.Client, remotePathA string) (bool, error) {
+
+	_, err := ftpA.Stat(remotePathA)
 
 	if err != nil {
 		if os.IsExist(err) {
